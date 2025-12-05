@@ -17,7 +17,6 @@ PantryChef helps you manage your ingredients, plan recipes, and reduce food wast
 - Python 3.11+
 - pip
 - Git
-- (Optional) Docker for containerized deployment
 
 ---
 
