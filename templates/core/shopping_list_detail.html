@@ -1,0 +1,794 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block content %}
+
+<div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <h1 class="text-2xl font-bold text-gray-800 mb-6">{{ shopping_list.name }}</h1>
+
+  <!-- AI Generated Empty List Warning -->
+  {% if is_ai_generated_empty %}
+  <div class="mb-6">
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+      <div class="flex items-start">
+        <div class="flex-shrink-0 mr-2">
+          <i class="fas fa-exclamation-triangle text-yellow-400 text-xl mt-1"></i>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-lg font-medium text-yellow-800">AI Shopping List is Empty</h3>
+          <div class="mt-2 text-yellow-700">
+            <p class="mb-3">The AI couldn't generate shopping suggestions. Make sure you have:</p>
+            <ul class="list-disc pl-5 space-y-2">
+              <li class="flex items-center">
+                <strong class="mr-2">Pantry items:</strong>
+                {% if has_pantry_items %}
+                <span class="text-green-600 ml-2">You have pantry items</span>
+                {% else %}
+                <span class="text-red-600 ml-2">Add items to your pantry first</span>
+                <a href="{% url 'pantry_list' %}" class="ml-2 text-blue-600 hover:text-blue-800 text-sm">
+                  (Go to Pantry)
+                </a>
+                {% endif %}
+              </li>
+              
+              <li class="flex items-center">
+                <strong class="mr-2">Recipes:</strong>
+                {% if has_recipes %}
+                <span class="text-green-600 ml-2">You have recipes</span>
+                {% else %}
+                <span class="text-red-600 ml-2">Create or import recipes</span>
+                <a href="{% url 'recipe_list' %}" class="ml-2 text-blue-600 hover:text-blue-800 text-sm">
+                  (Go to Recipes)
+                </a>
+                {% endif %}
+              </li>
+              
+              <li class="flex items-center">
+                <strong class="mr-2">Active budget:</strong>
+                {% if has_budget %}
+                <span class="text-green-600 ml-2">Budget is set</span>
+                {% else %}
+                <span class="text-red-600 ml-2">Set up your budget</span>
+                <a href="{% url 'create_budget' %}" class="ml-2 text-blue-600 hover:text-blue-800 text-sm">
+                  (Set Budget)
+                </a>
+                {% endif %}
+              </li>
+              
+              <!-- <li class="flex items-center">
+                <strong class="mr-2">User profile:</strong>
+                {% if has_user_profile %}
+                <span class="text-green-600 ml-2">Profile complete</span>
+                {% else %}
+                <span class="text-red-600 ml-2">Complete your profile</span>
+                <a href="{% url 'edit_profile' %}" class="ml-2 text-blue-600 hover:text-blue-800 text-sm">
+                  (Edit Profile)
+                </a>
+                {% endif %}
+              </li> -->
+              
+              <li class="flex items-center">
+                <strong class="mr-2">Health goals:</strong>
+                {% if has_user_goal %}
+                <span class="text-green-600 ml-2">Goals set</span>
+                {% else %}
+                <span class="text-red-600 ml-2">Set your health/fitness goals</span>
+                <a href="{% url 'user_goals' %}" class="ml-2 text-blue-600 hover:text-blue-800 text-sm">
+                  (Set Goals)
+                </a>
+                {% endif %}
+              </li>
+            </ul>
+            
+            <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p class="text-blue-800 font-medium mb-2">How AI Shopping Lists Work:</p>
+              <ul class="text-sm text-blue-700 space-y-1">
+                <li>AI analyzes your pantry to avoid suggesting items you already have</li>
+                <li>Checks recipes for missing ingredients</li>
+                <li>Considers your budget, dietary preferences, and health goals</li>
+                <li>Suggests items to help use expiring ingredients</li>
+                <li>You can still add custom items manually below</li>
+              </ul>
+            </div>
+            
+            <div class="mt-4 flex flex-wrap gap-3">
+              <a href="{% url 'pantry_list' %}" 
+                 class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
+                <i class="fas fa-utensils mr-2"></i> Go to Pantry
+              </a>
+              <a href="{% url 'recipe_list' %}" 
+                 class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-book mr-2"></i> Go to Recipes
+              </a>
+              <a href="{% url 'create_budget' %}" 
+                 class="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors">
+                <i class="fas fa-wallet mr-2"></i> Set Budget
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Main Form for Confirming Purchases -->
+  <form method="post" id="confirmForm" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="confirm" />
+
+    <!-- ===== Budget & Spending Overview ===== -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+      <h3 class="text-xl font-semibold text-gray-800 mb-4">Budget & Spending</h3>
+      
+      <!-- Active Budget Information -->
+      {% if active_budget %}
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <p class="text-sm text-blue-600 font-medium">Total Budget</p>
+          <p class="text-lg font-bold text-blue-800">£{{ active_budget.amount|floatformat:2 }}</p>
+          <p class="text-xs text-blue-600">{{ active_budget.period|title }} • {{ active_budget.currency }}</p>
+        </div>
+        
+        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+          <p class="text-sm text-green-600 font-medium">Amount Spent</p>
+          <p class="text-lg font-bold text-green-800">£{{ active_budget.amount_spent|floatformat:2 }}</p>
+          <p class="text-xs text-green-600">{{ active_budget.get_spending_percentage|floatformat:0 }}% of budget</p>
+        </div>
+        
+        <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <p class="text-sm text-purple-600 font-medium">Remaining</p>
+          <p class="text-lg font-bold text-purple-800">£{{ active_budget.get_remaining_budget|floatformat:2 }}</p>
+          {% if budget_info.daily_budget %}
+          <p class="text-xs text-purple-600">£{{ budget_info.daily_budget|floatformat:2 }}/day</p>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Budget Progress Bar -->
+      <div class="mb-4">
+        <div class="flex justify-between text-sm text-gray-600 mb-2">
+          <span>Budget Usage</span>
+          <span>{{ active_budget.get_spending_percentage|floatformat:0 }}%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-3">
+          <div class="bg-green-500 h-3 rounded-full transition-all duration-500"
+               style="width: {{ active_budget.get_spending_percentage }}%"></div>
+        </div>
+      </div>
+      {% else %}
+      <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-4">
+        <p class="text-yellow-800 font-medium">No Active Budget</p>
+        <p class="text-sm text-yellow-600">Set up a budget to track your spending</p>
+      </div>
+      {% endif %}
+
+      <!-- Shopping List Cost Summary -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+        <div class="text-center">
+          <p class="text-sm text-gray-600">Estimated Cost</p>
+          <p class="text-xl font-bold text-gray-800">£{{ shopping_list.total_estimated_cost|floatformat:2 }}</p>
+        </div>
+        <div class="text-center">
+          <p class="text-sm text-gray-600">Actual Cost</p>
+          <p class="text-xl font-bold {% if shopping_list.total_actual_cost %}text-green-600{% else %}text-gray-500{% endif %}">
+            {% if shopping_list.total_actual_cost %}
+            £{{ shopping_list.total_actual_cost|floatformat:2 }}
+            {% else %}
+            Not confirmed
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Shopping Progress ===== -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+      <h3 class="text-xl font-semibold text-gray-800 mb-4">Shopping Progress</h3>
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-gray-600" id="progressText">
+          {{ purchased_items }}/{{ total_items }} items purchased
+        </span>
+        <span class="font-medium text-green-600" id="progressPercentage">{{ purchased_percentage|floatformat:0 }}%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-3">
+        <div class="bg-green-500 h-3 rounded-full transition-all duration-500" id="progressBar"
+             style="width: {{ purchased_percentage }}%"></div>
+      </div>
+    </div>
+
+    <!-- ====== High Priority Items ====== -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6" id="highPrioritySection" {% if not high_priority_items %}style="display: none;"{% endif %}>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-semibold text-gray-800">High Priority Items</h3>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800" id="highPriorityCount">
+          {{ high_priority_items.count }} items
+        </span>
+      </div>
+      <div class="space-y-3" id="highPriorityItems">
+        {% for item in high_priority_items %}
+        <div class="flex flex-col md:flex-row md:items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+          <div class="flex items-center space-x-4">
+            <input type="checkbox" name="purchased_{{ item.id }}" {% if item.purchased %}checked{% endif %}
+                   class="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500">
+            <div>
+              <h4 class="font-medium text-gray-800">{{ item.item_name }}</h4>
+              <p class="text-sm text-gray-600">{{ item.quantity }} {{ item.unit }}</p>
+              {% if item.category and item.category != 'other' %}
+              <span class="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full mt-1">
+                {{ item.get_category_display }}
+              </span>
+              {% endif %}
+              {% if item.reason %}
+              <p class="text-xs text-gray-500 mt-1">{{ item.reason }}</p>
+              {% endif %}
+              {% if item.notes %}
+              <p class="text-xs text-gray-400 mt-1">{{ item.notes }}</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="mt-3 md:mt-0 text-right space-y-2">
+            <!-- Price Display -->
+            <div>
+              <span class="font-medium text-gray-800">£{{ item.estimated_price|floatformat:2 }}</span>
+              {% if item.actual_price %}
+              <span class="block text-sm text-green-600">Actual: £{{ item.actual_price|floatformat:2 }}</span>
+              {% endif %}
+            </div>
+
+            <!-- Price & Quantity Inputs -->
+            <div class="flex space-x-2 justify-end">
+              <input type="number" step="0.01" min="0" name="actual_price_{{ item.id }}" 
+                     placeholder="Actual £" value="{% if item.actual_price %}{{ item.actual_price|floatformat:2 }}{% endif %}"
+                     class="w-28 border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+              <input type="number" step="0.01" min="0" name="purchased_qty_{{ item.id }}" 
+                     placeholder="Qty" value="{% if item.purchased %}{{ item.quantity|floatformat:2 }}{% endif %}"
+                     class="w-20 border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+            </div>
+
+            <!-- Expiry Input -->
+            <div class="flex space-x-2 justify-end">
+              <input type="date" name="expiry_date_{{ item.id }}" 
+                     class="border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                     min="{{ today|date:'Y-m-d' }}" />
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ====== Medium Priority Items ====== -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6" id="mediumPrioritySection" {% if not medium_priority_items %}style="display: none;"{% endif %}>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-semibold text-gray-800">Medium Priority Items</h3>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800" id="mediumPriorityCount">
+          {{ medium_priority_items.count }} items
+        </span>
+      </div>
+      <div class="space-y-3" id="mediumPriorityItems">
+        {% for item in medium_priority_items %}
+        <div class="flex flex-col md:flex-row md:items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+          <div class="flex items-center space-x-4">
+            <input type="checkbox" name="purchased_{{ item.id }}" {% if item.purchased %}checked{% endif %}
+                   class="w-5 h-5 text-yellow-600 border-yellow-300 rounded focus:ring-yellow-500">
+            <div>
+              <h4 class="font-medium text-gray-800">{{ item.item_name }}</h4>
+              <p class="text-sm text-gray-600">{{ item.quantity }} {{ item.unit }}</p>
+              {% if item.category and item.category != 'other' %}
+              <span class="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full mt-1">
+                {{ item.get_category_display }}
+              </span>
+              {% endif %}
+              {% if item.notes %}
+              <p class="text-xs text-gray-400 mt-1">{{ item.notes }}</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="mt-3 md:mt-0 text-right space-y-2">
+            <span class="font-medium text-gray-800">£{{ item.estimated_price|floatformat:2 }}</span>
+            <div class="flex space-x-2 justify-end">
+              <input type="number" step="0.01" min="0" name="actual_price_{{ item.id }}" 
+                     placeholder="Actual £" value="{% if item.actual_price %}{{ item.actual_price|floatformat:2 }}{% endif %}"
+                     class="w-28 border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+            </div>
+            <div class="flex space-x-2 justify-end">
+              <input type="date" name="expiry_date_{{ item.id }}" 
+                     class="border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                     min="{{ today|date:'Y-m-d' }}" />
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ====== Low Priority Items ====== -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6" id="lowPrioritySection" {% if not low_priority_items %}style="display: none;"{% endif %}>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-semibold text-gray-800">Low Priority Items</h3>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800" id="lowPriorityCount">
+          {{ low_priority_items.count }} items
+        </span>
+      </div>
+      <div class="space-y-3" id="lowPriorityItems">
+        {% for item in low_priority_items %}
+        <div class="flex flex-col md:flex-row md:items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+          <div class="flex items-center space-x-4">
+            <input type="checkbox" name="purchased_{{ item.id }}" {% if item.purchased %}checked{% endif %}
+                   class="w-5 h-5 text-green-600 border-green-300 rounded focus:ring-green-600">
+            <div>
+              <h4 class="font-medium text-gray-800">{{ item.item_name }}</h4>
+              <p class="text-sm text-gray-600">{{ item.quantity }} {{ item.unit }}</p>
+              {% if item.category and item.category != 'other' %}
+              <span class="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full mt-1">
+                {{ item.get_category_display }}
+              </span>
+              {% endif %}
+              {% if item.notes %}
+              <p class="text-xs text-gray-400 mt-1">{{ item.notes }}</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="mt-3 md:mt-0 text-right space-y-2">
+            <span class="font-medium text-gray-800">£{{ item.estimated_price|floatformat:2 }}</span>
+            <div class="flex space-x-2 justify-end">
+              <input type="number" step="0.01" min="0" name="actual_price_{{ item.id }}" 
+                     placeholder="Actual £" value="{% if item.actual_price %}{{ item.actual_price|floatformat:2 }}{% endif %}"
+                     class="w-28 border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+            </div>
+            <div class="flex space-x-2 justify-end">
+              <input type="date" name="expiry_date_{{ item.id }}" 
+                     class="border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                     min="{{ today|date:'Y-m-d' }}" />
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </form>
+
+  <!-- ====== Add Custom Items ====== -->
+  <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <h3 class="text-xl font-semibold text-gray-800 mb-4">Add Custom Items</h3>
+    
+    <!-- Separate Form for Adding Custom Items -->
+    <form method="post" id="customItemForm" class="space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_custom_item" />
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Item Name -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Item Name</label>
+          <input type="text" name="item_name" required id="itemName"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                 placeholder="Enter item name">
+        </div>
+        
+        <!-- Quantity -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+          <input type="number" name="quantity" step="0.01" min="0" required id="itemQuantity"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                 placeholder="0.00" value="1">
+        </div>
+        
+        <!-- Unit -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Unit</label>
+          <input type="text" name="unit" required id="itemUnit"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                 placeholder="g, ml, pieces" value="g">
+        </div>
+        
+        <!-- Estimated Price -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Estimated Price (£)</label>
+          <input type="number" name="estimated_price" step="0.01" min="0" required id="itemPrice"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                 placeholder="0.00">
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Category -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+          <select name="category" id="itemCategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+            <option value="other">Other</option>
+            <option value="vegetables">Vegetables</option>
+            <option value="fruits">Fruits</option>
+            <option value="dairy">Dairy & Eggs</option>
+            <option value="meat">Meat & Poultry</option>
+            <option value="seafood">Seafood</option>
+            <option value="grains">Grains & Cereals</option>
+            <option value="legumes">Legumes & Nuts</option>
+            <option value="spices">Spices & Herbs</option>
+            <option value="condiments">Condiments & Sauces</option>
+            <option value="beverages">Beverages</option>
+            <option value="frozen">Frozen Foods</option>
+            <option value="bakery">Bakery</option>
+            <option value="canned">Canned Goods</option>
+          </select>
+        </div>
+        
+        <!-- Priority -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+          <select name="priority" id="itemPriority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+            <option value="low">Low Priority</option>
+            <option value="medium" selected>Medium Priority</option>
+            <option value="high">High Priority</option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- Reason -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Reason (Optional)</label>
+        <input type="text" name="reason" id="itemReason"
+               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+               placeholder="Why do you need this item?">
+      </div>
+      
+      <!-- Notes -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+        <textarea name="notes" rows="2" id="itemNotes"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-vertical"
+                  placeholder="Any additional notes..."></textarea>
+      </div>
+      
+      <div class="flex space-x-3">
+        <button type="submit"
+                class="bg-green-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center">
+          <i class="fas fa-plus mr-2"></i>
+          Add Item
+        </button>
+        
+        <!-- Quick Add Multiple Button -->
+        <button type="button" id="quickAddAnother"
+                class="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center">
+          <i class="fas fa-plus-circle mr-2"></i>
+          Add & Add Another
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ====== Shopping Tips ====== -->
+  <div class="bg-blue-50 rounded-xl p-4 mb-6 border border-blue-200">
+    <div class="flex items-start space-x-3">
+      <div class="flex-shrink-0">
+        <i class="fas fa-lightbulb text-blue-600 mt-1"></i>
+      </div>
+      <div>
+        <h4 class="font-medium text-blue-800">Shopping Tips</h4>
+        <ul class="text-sm text-blue-600 mt-1 space-y-1">
+          <li>Add expiry dates for better food waste tracking</li>
+          <li>Update actual prices for accurate budget tracking</li>
+          <li>Adjust quantities if you purchased different amounts</li>
+          <li>Mark items as purchased to track your progress</li>
+          <li>Add custom items you need that weren't suggested by AI</li>
+          <li>Use "Add & Add Another" to quickly add multiple items</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Confirm Purchases Button ====== -->
+  <div class="mt-8">
+    <button type="submit" form="confirmForm"
+            class="w-full bg-green-600 hover:bg-green-800 text-white py-3 px-4 rounded-lg font-medium text-lg transition-colors duration-200 flex items-center justify-center">
+      <i class="fas fa-check-circle mr-2"></i>
+      Confirm Purchases & Update Budget
+    </button>
+    <p class="text-sm text-gray-500 text-center mt-2">
+      This will update your pantry, track spending, and analyze food waste
+    </p>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add focus styles to all form inputs
+    const inputs = document.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+        input.addEventListener('focus', function() {
+            this.classList.add('ring-2', 'ring-green-500', 'border-green-500');
+        });
+        input.addEventListener('blur', function() {
+            this.classList.remove('ring-2', 'ring-green-500', 'border-green-500');
+        });
+    });
+
+    // Auto-calculate purchased percentage when checkboxes are clicked
+    function updateProgress() {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"][name^="purchased_"]');
+        const totalItems = checkboxes.length;
+        const purchasedItems = Array.from(checkboxes).filter(cb => cb.checked).length;
+        const percentage = totalItems > 0 ? (purchasedItems / totalItems) * 100 : 0;
+        
+        // Update progress bar
+        const progressBar = document.getElementById('progressBar');
+        if (progressBar) {
+            progressBar.style.width = percentage + '%';
+        }
+        
+        // Update text
+        const progressText = document.getElementById('progressText');
+        if (progressText) {
+            progressText.textContent = purchasedItems + '/' + totalItems + ' items purchased';
+        }
+        
+        const percentageText = document.getElementById('progressPercentage');
+        if (percentageText) {
+            percentageText.textContent = Math.round(percentage) + '%';
+        }
+    }
+
+    // Set minimum date for expiry dates to today
+    const today = new Date().toISOString().split('T')[0];
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(input => {
+        if (!input.value) {
+            input.value = today;
+        }
+    });
+
+    // Handle custom item form submission
+    const customItemForm = document.getElementById('customItemForm');
+    const quickAddAnotherBtn = document.getElementById('quickAddAnother');
+    
+    if (customItemForm) {
+        // Regular form submission
+        customItemForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent event bubbling
+            if (validateCustomItemForm()) {
+                submitCustomItemForm(false);
+            }
+        });
+
+        // Quick add another functionality
+        quickAddAnotherBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent event bubbling
+            if (validateCustomItemForm()) {
+                submitCustomItemForm(true);
+            }
+        });
+    }
+
+    function validateCustomItemForm() {
+        const itemName = document.getElementById('itemName');
+        const quantity = document.getElementById('itemQuantity');
+        const unit = document.getElementById('itemUnit');
+        const estimatedPrice = document.getElementById('itemPrice');
+        
+        let isValid = true;
+        
+        if (!itemName.value.trim()) {
+            alert('Please enter an item name');
+            itemName.focus();
+            isValid = false;
+        } else if (!quantity.value || parseFloat(quantity.value) <= 0) {
+            alert('Please enter a valid quantity greater than 0');
+            quantity.focus();
+            isValid = false;
+        } else if (!unit.value.trim()) {
+            alert('Please enter a unit');
+            unit.focus();
+            isValid = false;
+        } else if (!estimatedPrice.value || parseFloat(estimatedPrice.value) < 0) {
+            alert('Please enter a valid estimated price');
+            estimatedPrice.focus();
+            isValid = false;
+        }
+        
+        return isValid;
+    }
+
+    function submitCustomItemForm(quickAdd = false) {
+        const form = customItemForm;
+        const formData = new FormData(form);
+        
+        // Show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const quickAddBtn = document.getElementById('quickAddAnother');
+        const originalSubmitText = submitBtn.innerHTML;
+        const originalQuickAddText = quickAddBtn.innerHTML;
+        
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adding...';
+        quickAddBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adding...';
+        submitBtn.disabled = true;
+        quickAddBtn.disabled = true;
+        
+        fetch('', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Add the new item to the appropriate priority section
+                addItemToPrioritySection(data.item);
+                
+                // Update progress
+                updateProgress();
+                
+                if (quickAdd) {
+                    // Clear the form for next item
+                    form.reset();
+                    // Reset default values
+                    document.getElementById('itemQuantity').value = '1';
+                    document.getElementById('itemUnit').value = 'g';
+                    // Show success message
+                    showToast('Item added successfully! You can add another item.', 'success');
+                    // Focus on the first field
+                    document.getElementById('itemName').focus();
+                } else {
+                    // Show success message
+                    showToast('Item added successfully!', 'success');
+                }
+            } else {
+                let errorMessage = 'Error adding item: ' + (data.message || 'Please try again.');
+                if (data.errors) {
+                    errorMessage += '\n' + JSON.stringify(data.errors);
+                }
+                alert(errorMessage);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error adding item. Please check your connection and try again.');
+        })
+        .finally(() => {
+            // Restore button states
+            submitBtn.innerHTML = originalSubmitText;
+            quickAddBtn.innerHTML = originalQuickAddText;
+            submitBtn.disabled = false;
+            quickAddBtn.disabled = false;
+        });
+    }
+
+    function addItemToPrioritySection(item) {
+        const priority = item.priority;
+        const sectionId = priority + 'PriorityItems';
+        const sectionElement = document.getElementById(sectionId);
+        const sectionContainer = document.getElementById(priority + 'PrioritySection');
+        const countElement = document.getElementById(priority + 'PriorityCount');
+        
+        // Show the section if it was hidden
+        if (sectionContainer && sectionContainer.style.display === 'none') {
+            sectionContainer.style.display = 'block';
+        }
+        
+        // Get priority classes
+        const priorityClasses = {
+            'high': 'bg-red-50 border border-red-200',
+            'medium': 'bg-yellow-50 border border-yellow-200',
+            'low': 'bg-green-50 border border-green-200'
+        };
+        
+        const checkboxClasses = {
+            'high': 'text-red-600 border-red-300 focus:ring-red-500',
+            'medium': 'text-yellow-600 border-yellow-300 focus:ring-yellow-500',
+            'low': 'text-green-600 border-green-300 focus:ring-green-600'
+        };
+        
+        // Create the new item HTML - AUTO CHECKED by default
+        const newItemHtml = `
+            <div class="flex flex-col md:flex-row md:items-center justify-between p-4 ${priorityClasses[priority]} rounded-lg">
+                <div class="flex items-center space-x-4">
+                    <input type="checkbox" name="purchased_${item.id}" checked
+                           class="w-5 h-5 ${checkboxClasses[priority]} rounded focus:ring-2">
+                    <div>
+                        <h4 class="font-medium text-gray-800">${item.item_name}</h4>
+                        <p class="text-sm text-gray-600">${item.quantity} ${item.unit}</p>
+                        ${item.category && item.category !== 'other' ? `
+                        <span class="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full mt-1">
+                            ${item.get_category_display}
+                        </span>
+                        ` : ''}
+                        ${item.reason ? `<p class="text-xs text-gray-500 mt-1">${item.reason}</p>` : ''}
+                        ${item.notes ? `<p class="text-xs text-gray-400 mt-1">${item.notes}</p>` : ''}
+                    </div>
+                </div>
+                <div class="mt-3 md:mt-0 text-right space-y-2">
+                    <div>
+                        <span class="font-medium text-gray-800">£${parseFloat(item.estimated_price).toFixed(2)}</span>
+                    </div>
+                    <div class="flex space-x-2 justify-end">
+                        <input type="number" step="0.01" min="0" name="actual_price_${item.id}" 
+                               placeholder="Actual £" value="${parseFloat(item.estimated_price).toFixed(2)}"
+                               class="w-28 border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+                        ${priority === 'high' ? `
+                        <input type="number" step="0.01" min="0" name="purchased_qty_${item.id}" 
+                               placeholder="Qty" value="${item.quantity}"
+                               class="w-20 border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+                        ` : ''}
+                    </div>
+                    <div class="flex space-x-2 justify-end">
+                        <input type="date" name="expiry_date_${item.id}" 
+                               class="border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500" 
+                               min="${today}" />
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add the new item to the section
+        if (sectionElement) {
+            sectionElement.insertAdjacentHTML('beforeend', newItemHtml);
+            
+            // Update the count
+            if (countElement) {
+                const currentCount = parseInt(countElement.textContent) || 0;
+                countElement.textContent = (currentCount + 1) + ' items';
+            }
+            
+            // Add event listener to the new checkbox
+            const newCheckbox = sectionElement.querySelector(`input[name="purchased_${item.id}"]`);
+            if (newCheckbox) {
+                newCheckbox.addEventListener('change', updateProgress);
+            }
+            
+            // Trigger progress update since the item is automatically checked
+            updateProgress();
+        }
+    }
+
+    function showToast(message, type = 'info') {
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white ${
+            type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+        } z-50 transition-all duration-300 transform translate-x-full`;
+        toast.textContent = message;
+        
+        document.body.appendChild(toast);
+        
+        // Animate in
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full');
+            toast.classList.add('translate-x-0');
+        }, 100);
+        
+        // Remove toast after 3 seconds
+        setTimeout(() => {
+            toast.classList.remove('translate-x-0');
+            toast.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 300);
+        }, 3000);
+    }
+
+    // Update progress when any checkbox changes
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.type === 'checkbox' && e.target.name.startsWith('purchased_')) {
+            updateProgress();
+        }
+    });
+
+    // Initialize progress on page load
+    updateProgress();
+});
+</script>
+{% endblock %}
