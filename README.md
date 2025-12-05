@@ -1,25 +1,29 @@
-Quick Start
-bash
-Install dependencies
-pip install -r requirements.txt
+# PantryChef 
 
-Set up environment variables
-cp .env.example .env
+Cook Smarter, Waste Less, Live Better with PantryChef!  
 
-Edit .env with your configuration
-Run migrations
-python manage.py migrate
+PantryChef helps you manage your ingredients, plan recipes, and reduce food waste efficiently.
 
-Start development server
-python manage.py runserver
 
-Collect static files
-python manage.py collectstatic
+## Features
+- Track your pantry items
+- Generate recipes based on available ingredients
+- Plan meals efficiently
+- Minimize food waste
 
-Set up production database
-python manage.py migrate
+---
 
-Start production server
-gunicorn pantrychef.wsgi:application Docker Deployment dockerfile
+## Prerequisites
+- Python 3.11+
+- pip
+- Git
+- (Optional) Docker for containerized deployment
 
-Cook Smarter, Waste Less, Live Better with PantryChef!
+---
+
+## Quick Start
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/chefpantry307-cmd/pantry_chef.git
+cd pantry_chef
